@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Absensi Online</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tambahkan Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -30,6 +32,11 @@
         .btn-secondary:hover { background-color: #d1d5db; }
         .btn-danger { background-color: #ef4444; color: white; }
         .btn-danger:hover { background-color: #dc2626; }
+        .btn-disabled {
+            background-color: #d1d5db;
+            color: #6b7280;
+            cursor: not-allowed;
+        }
         .input-field {
             width: 100%;
             padding: 0.75rem 1rem;
@@ -43,6 +50,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            z-index: 50;
         }
         .hidden { display: none; }
         .link-button {
@@ -55,11 +63,29 @@
         .link-button:hover {
             color: #4338ca;
         }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Style untuk kamera dihapus */
     </style>
 </head>
 <body class="bg-gray-100">
 
-    <div id="app-container" class="w-full max-w-6xl mx-auto p-4 md:p-8">
+    <!-- Loading Spinner -->
+    <div id="loading-overlay" class="modal-backdrop">
+        <div class="loader"></div>
+    </div>
+
+    <div id="app-container" class="w-full max-w-6xl mx-auto p-4 md:p-8 hidden">
         
         <header id="main-header" class="text-center mb-8">
             <h1 class="text-4xl font-bold text-gray-800">Absensi Online</h1>
@@ -132,13 +158,17 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="md:col-span-1 card">
                     <h3 class="text-xl font-bold mb-4">Absensi Hari Ini</h3>
-                    <div id="absen-buttons" class="space-y-3">
-                        <button onclick="markAttendance('Hadir')" class="btn w-full bg-green-500 hover:bg-green-600 text-white">Hadir</button>
-                        <button onclick="markAttendance('Izin')" class="btn w-full bg-yellow-500 hover:bg-yellow-600 text-white">Izin</button>
-                        <button onclick="markAttendance('Sakit')" class="btn w-full bg-red-500 hover:bg-red-600 text-white">Sakit</button>
-                        <button onclick="markAttendance('Alpa')" class="btn w-full bg-gray-500 hover:bg-gray-600 text-white">Alpa</button>
+                    <div id="absen-message" class="mb-4 text-center p-3 rounded-lg bg-blue-100 text-blue-800 hidden"></div>
+                    <div class="space-y-3">
+                        <button id="btn-absen-masuk" onclick="handleAbsensi('masuk')" class="btn w-full bg-green-500 hover:bg-green-600 text-white">Absen Masuk</button>
+                        <button id="btn-absen-pulang" onclick="handleAbsensi('pulang')" class="btn w-full bg-blue-500 hover:bg-blue-600 text-white">Absen Pulang</button>
+                        
+                        <div id="absen-lainnya" class="pt-2 border-t">
+                            <button onclick="handleAbsensi('izin')" class="btn w-full bg-yellow-500 hover:bg-yellow-600 text-white">Izin</button>
+                            <button onclick="handleAbsensi('sakit')" class="btn w-full bg-red-500 hover:bg-red-600 text-white mt-3">Sakit</button>
+                            <button onclick="handleAbsensi('alpa')" class="btn w-full bg-gray-500 hover:bg-gray-600 text-white mt-3">Alpa</button>
+                        </div>
                     </div>
-                     <div id="absen-message" class="hidden mt-4 text-center p-4 rounded-lg bg-blue-100 text-blue-800"></div>
                 </div>
                 <div class="md:col-span-2 card">
                     <h3 class="text-xl font-bold mb-4">Riwayat Absensi Anda</h3>
@@ -148,6 +178,9 @@
                                 <tr>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Waktu Masuk</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Waktu Pulang</th>
+                                    <!-- Kolom Foto Dihapus -->
                                 </tr>
                             </thead>
                             <tbody id="siswa-history-table" class="bg-white divide-y divide-gray-200"></tbody>
@@ -178,6 +211,9 @@
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nama Siswa</th>
                              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Waktu Masuk</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Waktu Pulang</th>
+                            <!-- Kolom Foto Dihapus -->
                         </tr>
                     </thead>
                     <tbody id="wali-kelas-table" class="bg-white divide-y divide-gray-200"></tbody>
@@ -239,341 +275,579 @@
         </div>
     </div>
 
+    <!-- ===== MODAL KAMERA (BARU) ===== -->
+    <!-- Seluruh modal kamera dihapus -->
+
     <script>
-    // --- DATABASE (HARDCODED) ---
-    // In a real application, this data would come from a server/database.
-    let users = {
-        // Admin
-        "admin": { password: "admin123", name: "Administrator", birthYear: 1985, role: "admin" },
-        
-        // Wali Kelas
-        "walikelas": { password: "guru456", name: "Bpk. Iwan Setiawan", birthYear: 1995 },
-
-        // Siswa
-        "budi01": { password: "password1", name: "Ahmad Budi", birthYear: 2007 },
-        "citra02": { password: "password2", name: "Citra Lestari", birthYear: 2008 },
-        "dewi03": { password: "password3", name: "Dewi Anggraini", birthYear: 2007 },
-        "eko04": { password: "password4", name: "Eko Prasetyo", birthYear: 2008 },
-    };
-
-    let attendanceRecords = [
-        // Dummy data for demonstration
-        { username: 'budi01', date: '2025-10-16', status: 'Hadir' },
-        { username: 'citra02', date: '2025-10-16', status: 'Hadir' },
-        { username: 'dewi03', date: '2025-10-16', status: 'Sakit' },
-        { username: 'budi01', date: '2025-10-15', status: 'Hadir' },
-        { username: 'citra02', date: '2025-10-15', status: 'Izin' },
-        { username: 'dewi03', date: '2025-10-15', status: 'Hadir' },
-        { username: 'eko04', date: '2025-10-15', status: 'Hadir' },
-    ];
+    // --- KONEKSI SUPABASE ---
+    // GANTI DENGAN URL DAN ANON KEY SUPABASE ANDA
+    const SUPABASE_URL = 'https://apcvyorexyypghdjstjw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwY3Z5b3JleHl5cGdoZGpzdGp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NTgyMzcsImV4cCI6MjA3NjIzNDIzN30.nMrfwmpbeVpRVvEYs-9scANBd8ySHnrnStSNKULQ8CI';
     
-    let currentUser = null;
+    // Inisialisasi klien Supabase
+    const { createClient } = supabase;
+    const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // --- DOM ELEMENTS ---
-    const mainHeader = document.getElementById('main-header');
-    const loginView = document.getElementById('login-view');
-    const registerView = document.getElementById('register-view');
-    const appHeader = document.getElementById('app-header');
-    const dashboards = {
-        siswa: document.getElementById('siswa-dashboard'),
-        'wali-kelas': document.getElementById('wali-kelas-dashboard'),
-        admin: document.getElementById('admin-dashboard')
-    };
-    
-    // --- UTILITY FUNCTIONS ---
-    function getTodayDateString() {
-        // Note: Using a fixed date for consistent demonstration based on dummy data.
-        // In a real scenario, use: new Date().toISOString().slice(0, 10);
-        return '2025-10-16'; 
-    }
+    // --- MANAJEMEN DATA (SUPABASE) ---
+    async function loadInitialData() {
+        try {
+            // Ambil data users
+            const { data: usersData, error: usersError } = await db.from('users').select('*');
+            if (usersError) throw usersError;
 
-    function getRoleByBirthYear(year) {
-        if (year >= 2007 && year <= 2025) return 'siswa';
-        if (year >= 1990 && year <= 2006) return 'wali-kelas';
-        return null;
-    }
+            // Ubah array menjadi objek untuk pencarian cepat
+            users = {};
+            usersData.forEach(user => {
+                users[user.username] = user;
+            });
 
-    // --- VIEW SWITCHING ---
-    function showView(viewName) {
-        loginView.classList.add('hidden');
-        registerView.classList.add('hidden');
-        mainHeader.classList.remove('hidden'); // Show main header for login/register
-        appHeader.classList.add('hidden'); // Hide dashboard header
-        Object.values(dashboards).forEach(d => d.classList.add('hidden'));
+            // Ambil data absensi
+            const { data: attendanceData, error: attendanceError } = await db.from('attendance_records').select('*');
+            if (attendanceError) throw attendanceError;
+            attendanceRecords = attendanceData;
 
-        if (viewName === 'login') {
-            loginView.classList.remove('hidden');
-        } else if (viewName === 'register') {
-            registerView.classList.remove('hidden');
+            // Sembunyikan loading dan tampilkan aplikasi
+            document.getElementById('loading-overlay').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+
+        } catch (error) {
+            console.error("Error loading data from Supabase:", error.message);
+            // Tampilkan pesan error yang lebih jelas kepada pengguna
+            if (error.message.includes("Invalid API key") || error.message.includes("failed to fetch")) {
+                 alert("Gagal terhubung ke database. Pastikan SUPABASE_URL dan SUPABASE_ANON_KEY di dalam kode sudah benar.");
+                 // Sembunyikan loading agar tidak terjebak
+                 document.getElementById('loading-overlay').classList.add('hidden');
+            } else {
+                alert("Gagal memuat data dari database. Periksa koneksi dan konfigurasi Supabase Anda.");
+            }
         }
     }
 
-    document.getElementById('show-register-view-btn').addEventListener('click', () => showView('register'));
-    document.getElementById('show-login-view-btn').addEventListener('click', () => showView('login'));
 
-
-    // --- LOGIN, REGISTER & VIEW MANAGEMENT ---
-    document.getElementById('login-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        const errorEl = document.getElementById('login-error');
+    // --- GLOBAL VARIABLES ---
+    let users = {};
+    let attendanceRecords = [];
+    let currentUser = null;
+    // let currentStream = null; // Dihapus
+    
+    // PERBAIKAN: Bungkus semua kode yang berinteraksi dengan DOM di dalam DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', () => {
+    
+        // Panggil load data terlebih dahulu
+        // Kita buat `loadInitialData` juga me-render dashboard saat selesai
+        async function loadAndRender() {
+            await loadInitialData();
+            // Jika ada user yang sudah login (misal dari session, tapi kita belum buat itu)
+            // kita bisa render dashboardnya di sini.
+            // Untuk sekarang, kita hanya pastikan data siap.
+        }
         
-        const user = users[username];
+        loadAndRender();
+    
+        // --- DOM ELEMENTS ---
+        // Variabel-variabel ini sekarang aman didefinisikan di sini
+        const mainHeader = document.getElementById('main-header');
+        const loginView = document.getElementById('login-view');
+        const registerView = document.getElementById('register-view');
+        const appHeader = document.getElementById('app-header');
+        const dashboards = {
+            siswa: document.getElementById('siswa-dashboard'),
+            'wali-kelas': document.getElementById('wali-kelas-dashboard'),
+            admin: document.getElementById('admin-dashboard')
+        };
+        
+        // --- UTILITY FUNCTIONS ---
+        function getTodayDateString() {
+            return new Date().toISOString().slice(0, 10);
+        }
+    
+        function getRoleByBirthYear(year) {
+            if (year >= 2007 && year <= 2025) return 'siswa';
+            if (year >= 1990 && year <= 2006) return 'wali-kelas';
+            return null;
+        }
 
-        if (user && user.password === password) {
-            let role = user.role; // Admin has an explicit role
-            if (!role) {
-                role = getRoleByBirthYear(user.birthYear);
+        function formatTime(timestamp) {
+            if (!timestamp) return '-';
+            return new Date(timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+    
+        // --- VIEW SWITCHING ---
+        function showView(viewName) {
+            loginView.classList.add('hidden');
+            registerView.classList.add('hidden');
+            mainHeader.classList.remove('hidden'); 
+            appHeader.classList.add('hidden');
+            Object.values(dashboards).forEach(d => d.classList.add('hidden'));
+    
+            if (viewName === 'login') {
+                loginView.classList.remove('hidden');
+            } else if (viewName === 'register') {
+                registerView.classList.remove('hidden');
             }
-
-            if (role) {
-                currentUser = { username, ...user, role };
-                showDashboard(role);
-                errorEl.classList.add('hidden');
+        }
+    
+        document.getElementById('show-register-view-btn').addEventListener('click', () => showView('register'));
+        document.getElementById('show-login-view-btn').addEventListener('click', () => showView('login'));
+    
+    
+        // --- LOGIN, REGISTER & VIEW MANAGEMENT ---
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('login-error');
+            
+            const user = users[username];
+    
+            if (user && user.password === password) {
+                let role = user.role; 
+                if (!role) {
+                    role = getRoleByBirthYear(user.birth_year);
+                }
+                
+                if (role && role.toLowerCase() === 'administrator') {
+                    role = 'admin';
+                }
+    
+                if (role) {
+                    currentUser = { ...user, role };
+                    showDashboard(role);
+                    errorEl.classList.add('hidden');
+                } else {
+                    errorEl.textContent = "Peran untuk tahun lahir Anda tidak valid.";
+                    errorEl.classList.remove('hidden');
+                }
             } else {
-                errorEl.textContent = "Peran untuk tahun lahir Anda tidak valid.";
+                errorEl.textContent = "Username atau password salah.";
                 errorEl.classList.remove('hidden');
             }
-        } else {
-            errorEl.textContent = "Username atau password salah.";
-            errorEl.classList.remove('hidden');
-        }
-    });
-    
-    document.getElementById('register-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const username = document.getElementById('reg-username').value;
-        const name = document.getElementById('reg-name').value;
-        const password = document.getElementById('reg-password').value;
-        const birthYear = parseInt(document.getElementById('reg-birthYear').value, 10);
-        const errorEl = document.getElementById('register-error');
-        const successEl = document.getElementById('register-success');
-
-        errorEl.classList.add('hidden');
-        successEl.classList.add('hidden');
-
-        if (users[username]) {
-            errorEl.textContent = "Username sudah digunakan. Silakan pilih yang lain.";
-            errorEl.classList.remove('hidden');
-            return;
-        }
-
-        if (!getRoleByBirthYear(birthYear)) {
-            errorEl.textContent = "Tahun lahir tidak valid untuk peran siswa atau wali kelas.";
-            errorEl.classList.remove('hidden');
-            return;
-        }
-
-        users[username] = { password, name, birthYear };
-        
-        successEl.textContent = "Pendaftaran berhasil! Silakan masuk.";
-        successEl.classList.remove('hidden');
-        document.getElementById('register-form').reset();
-
-        // Optional: automatically switch to login view after a delay
-        setTimeout(() => {
-            showView('login');
-            successEl.classList.add('hidden'); // Hide message on switch
-        }, 2000);
-    });
-
-    function showDashboard(role) {
-        loginView.classList.add('hidden');
-        registerView.classList.add('hidden');
-        mainHeader.classList.add('hidden');
-        appHeader.classList.remove('hidden');
-        document.getElementById('role-name').textContent = role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
-        document.getElementById('user-name').textContent = currentUser.name;
-
-        Object.values(dashboards).forEach(d => d.classList.add('hidden'));
-        dashboards[role].classList.remove('hidden');
-
-        // Render content for the specific dashboard
-        if (role === 'siswa') renderSiswaDashboard();
-        if (role === 'wali-kelas') renderWaliKelasDashboard();
-        if (role === 'admin') renderAdminDashboard();
-    }
-    
-    function logout() {
-        currentUser = null;
-        showView('login');
-        document.getElementById('username').value = '';
-        document.getElementById('password').value = '';
-    }
-
-    // --- SISWA DASHBOARD ---
-    function markAttendance(status) {
-        const today = getTodayDateString();
-        // Remove previous entry for today, if any
-        attendanceRecords = attendanceRecords.filter(r => !(r.username === currentUser.username && r.date === today));
-        // Add new record
-        attendanceRecords.push({ username: currentUser.username, date: today, status: status });
-        renderSiswaDashboard();
-    }
-    
-    function renderSiswaDashboard() {
-        const today = getTodayDateString();
-        const todaysAttendance = attendanceRecords.find(r => r.username === currentUser.username && r.date === today);
-
-        const absenButtons = document.getElementById('absen-buttons');
-        const absenMessage = document.getElementById('absen-message');
-
-        if (todaysAttendance) {
-            absenButtons.classList.add('hidden');
-            absenMessage.classList.remove('hidden');
-            absenMessage.textContent = `Anda sudah tercatat ${todaysAttendance.status} hari ini. Anda bisa mengubahnya jika perlu.`;
-        } else {
-             absenButtons.classList.remove('hidden');
-            absenMessage.classList.add('hidden');
-        }
-
-        const historyTable = document.getElementById('siswa-history-table');
-        historyTable.innerHTML = '';
-        attendanceRecords
-            .filter(r => r.username === currentUser.username)
-            .sort((a,b) => b.date.localeCompare(a.date)) // Sort newest first
-            .forEach(rec => {
-                historyTable.innerHTML += `<tr>
-                    <td class="px-4 py-3 text-sm text-gray-700">${rec.date}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700">${rec.status}</td>
-                </tr>`;
-            });
-    }
-
-    // --- WALI KELAS DASHBOARD ---
-    document.getElementById('rekap-filter').addEventListener('change', renderWaliKelasDashboard);
-
-    function renderWaliKelasDashboard() {
-        const filter = document.getElementById('rekap-filter').value;
-        const today = new Date(getTodayDateString());
-        
-        let filteredRecords = [];
-        if (filter === 'harian') {
-            const todayStr = getTodayDateString();
-            filteredRecords = attendanceRecords.filter(r => r.date === todayStr);
-        } else if (filter === 'mingguan') {
-            const startOfWeek = new Date(today);
-            startOfWeek.setDate(today.getDate() - today.getDay());
-            filteredRecords = attendanceRecords.filter(r => new Date(r.date) >= startOfWeek && new Date(r.date) <= today);
-        } else if (filter === 'bulanan') {
-            filteredRecords = attendanceRecords.filter(r => r.date.startsWith(today.toISOString().slice(0, 7)));
-        }
-
-        const summary = { Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0 };
-        filteredRecords.forEach(r => {
-            if (summary.hasOwnProperty(r.status)) {
-                summary[r.status]++;
-            }
         });
-
-        document.getElementById('rekap-summary').innerHTML = `
-            <div class="p-4 bg-green-100 rounded-lg"><p class="text-green-800 font-bold text-2xl">${summary.Hadir}</p><p class="text-green-600">Hadir</p></div>
-            <div class="p-4 bg-yellow-100 rounded-lg"><p class="text-yellow-800 font-bold text-2xl">${summary.Izin}</p><p class="text-yellow-600">Izin</p></div>
-            <div class="p-4 bg-red-100 rounded-lg"><p class="text-red-800 font-bold text-2xl">${summary.Sakit}</p><p class="text-red-600">Sakit</p></div>
-            <div class="p-4 bg-gray-100 rounded-lg"><p class="text-gray-800 font-bold text-2xl">${summary.Alpa}</p><p class="text-gray-600">Alpa</p></div>
-        `;
         
-        const tableBody = document.getElementById('wali-kelas-table');
-        tableBody.innerHTML = '';
-        filteredRecords
-            .sort((a,b) => b.date.localeCompare(a.date) || users[a.username].name.localeCompare(users[b.username].name))
-            .forEach(rec => {
-            tableBody.innerHTML += `<tr>
-                <td class="px-4 py-3 text-sm font-medium text-gray-900">${users[rec.username]?.name || rec.username}</td>
-                <td class="px-4 py-3 text-sm text-gray-500">${rec.date}</td>
-                <td class="px-4 py-3 text-sm text-gray-700">${rec.status}</td>
-            </tr>`;
-        });
-        if(filteredRecords.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-gray-500">Tidak ada data untuk periode ini.</td></tr>`
-        }
-    }
-
-    // --- ADMIN DASHBOARD ---
-    function renderAdminDashboard() {
-        const tableBody = document.getElementById('admin-user-table');
-        tableBody.innerHTML = '';
-        Object.keys(users).forEach(username => {
-            const user = users[username];
-            const role = user.role || getRoleByBirthYear(user.birthYear);
-            tableBody.innerHTML += `
-                <tr>
-                    <td class="px-4 py-3 text-sm font-medium text-gray-900">${username}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700">${user.name}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700">${user.birthYear}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700">${role}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700 space-x-2">
-                        <button onclick="showUserModal('${username}')" class="text-indigo-600 hover:text-indigo-900">Edit</button>
-                        ${username !== 'admin' ? `<button onclick="deleteUser('${username}')" class="text-red-600 hover:text-red-900">Hapus</button>` : ''}
-                    </td>
-                </tr>`;
-        });
-    }
-
-    function showUserModal(username = null) {
-        const modal = document.getElementById('user-modal');
-        const form = document.getElementById('user-form');
-        form.reset();
-        
-        document.getElementById('modal-username').disabled = !!username;
-
-        if (username) { // Edit mode
-            const user = users[username];
-            document.getElementById('modal-title').textContent = 'Edit Pengguna';
-            document.getElementById('edit-username').value = username;
-            document.getElementById('modal-username').value = username;
-            document.getElementById('modal-name').value = user.name;
-            document.getElementById('modal-birthYear').value = user.birthYear;
-            document.getElementById('modal-password').required = false; // Password optional on edit
-        } else { // Add mode
-            document.getElementById('modal-title').textContent = 'Tambah Pengguna Baru';
-             document.getElementById('edit-username').value = '';
-            document.getElementById('modal-password').required = true;
-        }
-        modal.classList.remove('hidden');
-    }
-
-    function hideUserModal() {
-        document.getElementById('user-modal').classList.add('hidden');
-    }
-
-    document.getElementById('user-form').addEventListener('submit', function(e){
-        e.preventDefault();
-        const editUsername = document.getElementById('edit-username').value;
-        const username = document.getElementById('modal-username').value;
-        const name = document.getElementById('modal-name').value;
-        const password = document.getElementById('modal-password').value;
-        const birthYear = parseInt(document.getElementById('modal-birthYear').value, 10);
-
-        if (editUsername) { // Update existing user
-            users[editUsername].name = name;
-            users[editUsername].birthYear = birthYear;
-            if (password) {
-                users[editUsername].password = password;
-            }
-        } else { // Add new user
-            if(users[username]){
-                alert('Username sudah ada!');
+        document.getElementById('register-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const username = document.getElementById('reg-username').value;
+            const name = document.getElementById('reg-name').value;
+            const password = document.getElementById('reg-password').value;
+            const birthYear = parseInt(document.getElementById('reg-birthYear').value, 10);
+            const errorEl = document.getElementById('register-error');
+            const successEl = document.getElementById('register-success');
+    
+            errorEl.classList.add('hidden');
+            successEl.classList.add('hidden');
+    
+            if (users[username]) {
+                errorEl.textContent = "Username sudah digunakan. Silakan pilih yang lain.";
+                errorEl.classList.remove('hidden');
                 return;
             }
-            users[username] = { name, password, birthYear };
-        }
-        hideUserModal();
-        renderAdminDashboard();
-    });
     
-    function deleteUser(username) {
-        // Perbaikan: Fungsi `confirm` tidak berfungsi di lingkungan ini, sehingga proses hapus tidak berjalan.
-        // Konfirmasi telah dihapus agar fungsi berjalan. Tombol hapus sekarang akan langsung bekerja.
-        delete users[username];
-        // Juga hapus catatan absensinya
-        attendanceRecords = attendanceRecords.filter(r => r.username !== username);
-        renderAdminDashboard();
-    }
-</script>
+            if (!getRoleByBirthYear(birthYear)) {
+                errorEl.textContent = "Tahun lahir tidak valid untuk peran siswa atau wali kelas.";
+                errorEl.classList.remove('hidden');
+                return;
+            }
+    
+            // Simpan ke Supabase
+            const { data, error } = await db.from('users').insert([{ 
+                username: username, 
+                name: name, 
+                password: password, 
+                birth_year: birthYear 
+            }]).select();
+    
+            if (error) {
+                errorEl.textContent = "Gagal mendaftar: " + error.message;
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            // Perbarui data lokal
+            users[username] = data[0];
+            
+            successEl.textContent = "Pendaftaran berhasil! Silakan masuk.";
+            successEl.classList.remove('hidden');
+            document.getElementById('register-form').reset();
+            
+            setTimeout(() => {
+                showView('login');
+                successEl.classList.add('hidden');
+            }, 2000);
+        });
+    
+        function showDashboard(role) {
+            loginView.classList.add('hidden');
+            registerView.classList.add('hidden');
+            mainHeader.classList.add('hidden');
+            appHeader.classList.remove('hidden');
+            document.getElementById('role-name').textContent = role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
+            document.getElementById('user-name').textContent = currentUser.name;
+    
+            Object.values(dashboards).forEach(d => d.classList.add('hidden'));
+            
+            if (dashboards[role]) {
+                dashboards[role].classList.remove('hidden');
+            } else {
+                console.error(`Dashboard untuk peran "${role}" tidak ditemukan!`);
+                alert(`Error: Dashboard untuk peran "${role}" tidak terdefinisi.`);
+                logout();
+                return;
+            }
+    
+            if (role === 'siswa') renderSiswaDashboard();
+            if (role === 'wali-kelas') renderWaliKelasDashboard();
+            if (role === 'admin') renderAdminDashboard();
+        }
+        
+        // Definisikan fungsi logout di dalam scope ini agar bisa diakses oleh tombol
+        window.logout = function() {
+            currentUser = null;
+            showView('login');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        // --- FUNGSI KAMERA (DIHAPUS) ---
+        // window.openCameraModal ... (dihapus)
+        // window.cancelCamera ... (dihapus)
+        // window.takeAndUploadPhoto ... (dihapus)
+    
+        // --- SISWA DASHBOARD ---
+        
+        window.handleAbsensi = async function(type) {
+            const today = getTodayDateString();
+            const now = new Date().toISOString();
+            let dataToUpsert = {
+                username: currentUser.username,
+                date: today
+            };
+            let updatedRecord;
+            let existingRecord = attendanceRecords.find(r => r.username === currentUser.username && r.date === today);
+
+            try {
+                let query; 
+
+                if (type === 'masuk') {
+                    // Logika 'Absen Masuk' dikembalikan seperti semula
+                    dataToUpsert.status = 'Hadir';
+                    dataToUpsert.waktu_masuk = now;
+                    dataToUpsert.waktu_pulang = null;
+                    dataToUpsert.foto_url = null; // Tetap set null jika kolomnya ada
+                    
+                    query = db.from('attendance_records')
+                              .upsert(dataToUpsert, { onConflict: 'username, date' });
+
+                } else if (type === 'pulang') {
+                    // Logika khusus untuk "Absen Pulang"
+                    if (!existingRecord || existingRecord.status !== 'Hadir') {
+                        alert("Anda harus 'Absen Masuk' (Hadir) terlebih dahulu sebelum bisa absen pulang.");
+                        return;
+                    }
+                    if (existingRecord.waktu_pulang) {
+                        alert("Anda sudah tercatat absen pulang hari ini.");
+                        return;
+                    }
+                    
+                    query = db.from('attendance_records')
+                              .update({ waktu_pulang: now })
+                              .eq('id', existingRecord.id); // Update berdasarkan ID record
+                
+                } else {
+                    // Untuk Izin, Sakit, Alpa
+                    dataToUpsert.status = type;
+                    dataToUpsert.waktu_masuk = null;
+                    dataToUpsert.waktu_pulang = null;
+                    dataToUpsert.foto_url = null; // Pastikan foto null jika izin/sakit
+                    
+                    query = db.from('attendance_records')
+                              .upsert(dataToUpsert, { onConflict: 'username, date' });
+                }
+
+                // Jalankan query yang sudah kita siapkan
+                const { data, error } = await query.select().single();
+
+                if (error) throw error;
+                
+                updatedRecord = data;
+
+                // Perbarui data lokal
+                const recordIndex = attendanceRecords.findIndex(r => r.username === currentUser.username && r.date === today);
+                if (recordIndex > -1) {
+                    attendanceRecords[recordIndex] = updatedRecord;
+                } else {
+                    attendanceRecords.push(updatedRecord);
+                }
+                
+                // Render ulang dashboard siswa untuk menampilkan status baru
+                renderSiswaDashboard();
+
+            } catch (error) {
+                console.error("Error saat handle absensi:", error.message);
+                alert("Gagal menyimpan absensi: " + error.message);
+            }
+        }
+        
+        function renderSiswaDashboard() {
+            const today = getTodayDateString();
+            const rec = attendanceRecords.find(r => r.username === currentUser.username && r.date === today);
+    
+            const btnMasuk = document.getElementById('btn-absen-masuk');
+            const btnPulang = document.getElementById('btn-absen-pulang');
+            const btnLainnya = document.getElementById('absen-lainnya');
+            const msg = document.getElementById('absen-message');
+
+            // Reset semua tombol
+            btnMasuk.classList.remove('hidden', 'btn-disabled');
+            btnMasuk.disabled = false;
+            btnPulang.classList.remove('hidden', 'btn-disabled');
+            btnPulang.disabled = false;
+            btnLainnya.classList.remove('hidden');
+            msg.classList.add('hidden');
+
+            if (rec) {
+                if (rec.status !== 'Hadir') {
+                    // Jika Izin, Sakit, atau Alpa
+                    msg.textContent = `Anda sudah tercatat: ${rec.status} hari ini.`;
+                    msg.classList.remove('hidden');
+                    btnMasuk.classList.add('hidden');
+                    btnPulang.classList.add('hidden');
+                    btnLainnya.classList.add('hidden'); // Sembunyikan juga tombol lain
+                } else {
+                    // Jika status 'Hadir'
+                    // let fotoLink = ... // Dihapus
+                    
+                    if (rec.waktu_masuk && !rec.waktu_pulang) {
+                        // Sudah absen masuk, belum pulang
+                        msg.textContent = `Absen masuk pada: ${formatTime(rec.waktu_masuk)}`; // Kembali ke textContent
+                        msg.classList.remove('hidden');
+                        btnMasuk.classList.add('btn-disabled'); // Nonaktifkan tombol masuk
+                        btnMasuk.disabled = true;
+                        btnPulang.classList.remove('hidden'); // Tampilkan tombol pulang
+                        btnLainnya.classList.add('hidden'); // Sembunyikan Izin/Sakit/Alpa
+                    } else if (rec.waktu_masuk && rec.waktu_pulang) {
+                        // Sudah absen masuk DAN pulang
+                        msg.textContent = `Selesai. Masuk: ${formatTime(rec.waktu_masuk)}, Pulang: ${formatTime(rec.waktu_pulang)}`; // Kembali ke textContent
+                        msg.classList.remove('hidden');
+                        btnMasuk.classList.add('hidden');
+                        btnPulang.classList.add('hidden');
+                        btnLainnya.classList.add('hidden');
+                    }
+                }
+            } else {
+                // Belum ada catatan absensi sama sekali hari ini
+                btnPulang.classList.add('hidden'); // Sembunyikan tombol pulang
+            }
+    
+            // Render riwayat absensi
+            const historyTable = document.getElementById('siswa-history-table');
+            historyTable.innerHTML = '';
+            attendanceRecords
+                .filter(r => r.username === currentUser.username)
+                .sort((a,b) => b.date.localeCompare(a.date))
+                .forEach(rec => {
+                    // const fotoLink = ... // Dihapus
+                    historyTable.innerHTML += `
+                        <tr>
+                            <td class="px-4 py-3 text-sm text-gray-700">${rec.date}</td>
+                            <td class="px-4 py-3 text-sm text-gray-700">${rec.status}</td>
+                            <td class="px-4 py-3 text-sm text-gray-700">${formatTime(rec.waktu_masuk)}</td>
+                            <td class="px-4 py-3 text-sm text-gray-700">${formatTime(rec.waktu_pulang)}</td>
+                            <!-- Kolom Foto Dihapus -->
+                        </tr>`;
+                });
+        }
+    
+        // --- WALI KELAS DASHBOARD ---
+        document.getElementById('rekap-filter').addEventListener('change', renderWaliKelasDashboard);
+    
+        function renderWaliKelasDashboard() {
+            const filter = document.getElementById('rekap-filter').value;
+            const today = new Date();
+            
+            let filteredRecords = [];
+            if (filter === 'harian') {
+                const todayStr = getTodayDateString();
+                filteredRecords = attendanceRecords.filter(r => r.date === todayStr);
+            } else if (filter === 'mingguan') {
+                const startOfWeek = new Date(today);
+                startOfWeek.setDate(today.getDate() - today.getDay());
+                const startOfWeekStr = startOfWeek.toISOString().slice(0, 10);
+                const todayStr = getTodayDateString();
+                filteredRecords = attendanceRecords.filter(r => r.date >= startOfWeekStr && r.date <= todayStr);
+            } else if (filter === 'bulanan') {
+                filteredRecords = attendanceRecords.filter(r => r.date.startsWith(today.toISOString().slice(0, 7)));
+            }
+    
+            const summary = { Hadir: 0, Izin: 0, Sakit: 0, Alpa: 0 };
+            filteredRecords.forEach(r => {
+                if (summary.hasOwnProperty(r.status)) {
+                    summary.hasOwnProperty(r.status)
+                    summary[r.status]++;
+                }
+            });
+    
+            document.getElementById('rekap-summary').innerHTML = `
+                <div class="p-4 bg-green-100 rounded-lg"><p class="text-green-800 font-bold text-2xl">${summary.Hadir}</p><p class="text-green-600">Hadir</p></div>
+                <div class="p-4 bg-yellow-100 rounded-lg"><p class="text-yellow-800 font-bold text-2xl">${summary.Izin}</p><p class="text-yellow-600">Izin</p></div>
+                <div class="p-4 bg-red-100 rounded-lg"><p class="text-red-800 font-bold text-2xl">${summary.Sakit}</p><p class="text-red-600">Sakit</p></div>
+                <div class="p-4 bg-gray-100 rounded-lg"><p class="text-gray-800 font-bold text-2xl">${summary.Alpa}</p><p class="text-gray-600">Alpa</p></div>
+            `;
+            
+            const tableBody = document.getElementById('wali-kelas-table');
+            tableBody.innerHTML = '';
+            filteredRecords
+                .sort((a,b) => b.date.localeCompare(a.date) || users[a.username].name.localeCompare(users[b.username].name))
+                .forEach(rec => {
+                // const fotoLink = ... // Dihapus
+                tableBody.innerHTML += `
+                    <tr>
+                        <td class="px-4 py-3 text-sm font-medium text-gray-900">${users[rec.username]?.name || rec.username}</td>
+                        <td class="px-4 py-3 text-sm text-gray-500">${rec.date}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700">${rec.status}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700">${formatTime(rec.waktu_masuk)}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700">${formatTime(rec.waktu_pulang)}</td>
+                        <!-- Kolom Foto Dihapus -->
+                    </tr>`;
+            });
+            if(filteredRecords.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-gray-500">Tidak ada data untuk periode ini.</td></tr>` // Colspan diubah ke 5
+            }
+        }
+    
+        // --- ADMIN DASHBOARD ---
+        function renderAdminDashboard() {
+            const tableBody = document.getElementById('admin-user-table');
+            tableBody.innerHTML = '';
+            Object.keys(users).sort().forEach(username => {
+                const user = users[username];
+                const role = user.role || getRoleByBirthYear(user.birth_year);
+                tableBody.innerHTML += `
+                    <tr>
+                        <td class="px-4 py-3 text-sm font-medium text-gray-900">${username}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700">${user.name}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700">${user.birth_year}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700">${role}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700 space-x-2">
+                            <button onclick="showUserModal('${username}')" class="text-indigo-600 hover:text-indigo-900">Edit</button>
+                            ${username !== 'admin' ? `<button onclick="deleteUser('${username}')" class="text-red-600 hover:text-red-900">Hapus</button>` : ''}
+                        </td>
+                    </tr>`;
+            });
+        }
+    
+        // Definisikan fungsi modal di window agar bisa diakses oleh tombol
+        window.showUserModal = function(username = null) {
+            const modal = document.getElementById('user-modal');
+            const form = document.getElementById('user-form');
+            form.reset();
+            
+            document.getElementById('modal-username').disabled = !!username;
+    
+            if (username) { // Edit mode
+                const user = users[username];
+                document.getElementById('modal-title').textContent = 'Edit Pengguna';
+                document.getElementById('edit-username').value = username;
+                document.getElementById('modal-username').value = username;
+                document.getElementById('modal-name').value = user.name;
+                document.getElementById('modal-birthYear').value = user.birth_year;
+                document.getElementById('modal-password').required = false; 
+                document.getElementById('modal-password').placeholder = "Kosongkan jika tidak ingin diubah";
+            } else { // Add mode
+                document.getElementById('modal-title').textContent = 'Tambah Pengguna Baru';
+                document.getElementById('edit-username').value = '';
+                document.getElementById('modal-password').required = true;
+                document.getElementById('modal-password').placeholder = "";
+            }
+            modal.classList.remove('hidden');
+        }
+    
+        window.hideUserModal = function() {
+            document.getElementById('user-modal').classList.add('hidden');
+        }
+    
+        document.getElementById('user-form').addEventListener('submit', async function(e){
+            e.preventDefault();
+            const editUsername = document.getElementById('edit-username').value;
+            const username = document.getElementById('modal-username').value;
+            const name = document.getElementById('modal-name').value;
+            const password = document.getElementById('modal-password').value;
+            const birthYear = parseInt(document.getElementById('modal-birthYear').value, 10);
+    
+            if (editUsername) { // Mode Edit
+                let updatedData = { name: name, birth_year: birthYear };
+                if (password) updatedData.password = password;
+    
+                const { data, error } = await db.from('users').update(updatedData).eq('username', editUsername).select();
+                // PERBAIKAN: Menghapus karakter "D" yang salah
+                if(error) return alert("Gagal memperbarui pengguna: " + error.message);
+    
+                // Perbarui data lokal
+                users[editUsername] = data[0];
+    
+            } else { // Mode Tambah
+                if(users[username]){
+                    alert('Username sudah ada!');
+                    return;
+                }
+                const { data, error } = await db.from('users').insert([{ 
+                    username, name, password, birth_year: birthYear 
+                }]).select();
+                 if(error) return alert("Gagal menambah pengguna: " + error.message);
+                
+                // Perbarui data lokal
+                users[username] = data[0];
+            }
+    
+            hideUserModal();
+            renderAdminDashboard();
+        });
+        
+        // Definisikan fungsi deleteUser di window
+        window.deleteUser = async function(username) {
+            // PERBAIKAN: Menghapus 'confirm()' yang memblokir eksekusi di lingkungan ini.
+            // Peringatan: Pengguna akan langsung terhapus saat tombol diklik.
+            // if(!confirm(`Apakah Anda yakin ingin menghapus pengguna "${username}"? Semua data absensinya juga akan terhapus.`)) return;
+            
+            console.log(`Memulai proses hapus untuk: ${username}`);
+
+            try {
+                // Hapus record absensi terlebih dahulu
+                // Ini penting karena ada relasi 'foreign key'
+                const { error: attendanceError } = await db.from('attendance_records').delete().eq('username', username);
+                
+                // Kita tidak perlu menghentikan proses jika errornya hanya karena tidak ada data absensi
+                // Namun, kita akan log jika ada error lain
+                if (attendanceError) {
+                    console.warn("Catatan saat menghapus absensi (mungkin tidak ada data):", attendanceError.message);
+                }
+        
+                // Hapus user
+                const { error: userError } = await db.from('users').delete().eq('username', username);
+                
+                if (userError) {
+                    console.error("Error menghapus pengguna:", userError.message);
+                    alert("Gagal menghapus pengguna: " + userError.message);
+                    return; // Berhenti jika user gagal dihapus
+                }
+        
+                // Perbarui data lokal
+                delete users[username];
+                attendanceRecords = attendanceRecords.filter(r => r.username !== username);
+                
+                console.log(`Pengguna ${username} berhasil dihapus dari database dan data lokal.`);
+                
+                // Render ulang dashboard admin untuk menampilkan perubahan
+                renderAdminDashboard();
+
+            } catch (error) {
+                 console.error("Terjadi kesalahan tak terduga saat menghapus:", error);
+                 alert("Terjadi kesalahan tak terduga. Silakan cek konsol.");
+            }
+        }
+
+    }); // <-- Penutup untuk DOMContentLoaded
+
+    </script>
 
 </body>
 </html>
-
-
